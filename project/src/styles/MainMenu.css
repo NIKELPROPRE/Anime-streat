@@ -1,0 +1,61 @@
+.main-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #1a1a1a 0%, #4a4a4a 100%);
+  color: white;
+  font-family: "Arial", sans-serif;
+  outline: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.game-title {
+  font-size: 5rem;
+  margin-bottom: 4rem;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+.menu-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.menu-option {
+  padding: 1.5rem 3rem;
+  font-size: 2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  text-align: center;
+  min-width: 300px;
+  color: white;
+}
+
+.menu-option:hover {
+  color: #ff0000;
+  transform: scale(1.1);
+}
+
+.menu-option.selected {
+  color: #ff0000;
+  transform: scale(1.1);
+}
+
+@keyframes glow {
+  from {
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  }
+  to {
+    text-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+  }
+}

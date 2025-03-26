@@ -1,0 +1,32 @@
+.test-scene {
+  width: 100vw;
+  height: 100vh;
+  background-color: #2c3e50;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  z-index: 1000;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.back-button {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 10px 20px;
+  background-color: #ff0000;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  z-index: 1001;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.back-button:hover {
+  background-color: #cc0000;
+}

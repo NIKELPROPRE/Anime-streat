@@ -1,0 +1,59 @@
+.luffy-sprite {
+  position: absolute;
+  background: url("/Sprite/luffy.png") no-repeat;
+  transform: scale(2);
+  transform-origin: center;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  z-index: 1;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.luffy-sprite.flip {
+  transform: scale(2) scaleX(-1);
+}
+
+@keyframes idle {
+  0% {
+    background-position: -13px -11px;
+  }
+  33% {
+    background-position: -62px -12px;
+  }
+  66% {
+    background-position: -108px -13px;
+  }
+  100% {
+    background-position: -13px -11px;
+  }
+}
+
+@keyframes walk {
+  0% {
+    background-position: -244px -11px;
+  }
+  20% {
+    background-position: -296px -8px;
+  }
+  40% {
+    background-position: -337px -7px;
+  }
+  60% {
+    background-position: -384px -11px;
+  }
+  80% {
+    background-position: -433px -8px;
+  }
+  100% {
+    background-position: -474px -6px;
+  }
+}
+
+.luffy-sprite.idle {
+  animation: idle 0.8s linear infinite;
+}
+
+.luffy-sprite.walking {
+  animation: walk 0.8s linear infinite;
+}
