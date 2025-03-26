@@ -113,7 +113,14 @@ const Luffy = ({ position = { x: 100, y: 100 } }) => {
           setIsAttacking(false);
           setCurrentFrame(0);
           canAttackRef.current = true;
-          attackEndRef.current = true;
+          // Si le personnage n'est pas en mouvement, forcer le retour à l'état idle
+          if (!isMoving && !isRunning) {
+            setIsMoving(false);
+            setIsRunning(false);
+            setIsStopping(false);
+            setCurrentFrame(0);
+            return;
+          }
           return;
         }
         setCurrentFrame((prev) => prev + 1);
