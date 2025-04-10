@@ -9,8 +9,8 @@ const MapSelection = () => {
     {
       id: 1,
       name: "One Piece",
-      mapImage: "Map/Onepiece.png",
-      previewImage: "Map/Onepiece.png",
+      mapImage: "/Map/Onepiece.png",
+      previewImage: "/Map/Onepiece.png",
       frameCoordinates: { x: 0, y: 0, width: 0, height: 0 },
       boundaries: {
         left: 100,
@@ -22,8 +22,8 @@ const MapSelection = () => {
     {
       id: 2,
       name: "Naruto",
-      mapImage: "Map/konoha.jpg",
-      previewImage: "Map/konoha.jpg",
+      mapImage: "/Map/konoha.jpg",
+      previewImage: "/Map/konoha.jpg",
       frameCoordinates: { x: 0, y: 0, width: 0, height: 0 },
       boundaries: {
         left: 100,
@@ -35,8 +35,8 @@ const MapSelection = () => {
     {
       id: 3,
       name: "Hunter x Hunter",
-      mapImage: "Map/JS-HunterXHunter.png",
-      previewImage: "Map/JS-HunterXHunter.png",
+      mapImage: "/Map/JS-HunterXHunter.png",
+      previewImage: "/Map/JS-HunterXHunter.png",
       frameCoordinates: { x: 0, y: 0, width: 0, height: 0 },
       boundaries: {
         left: 100,

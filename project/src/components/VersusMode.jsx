@@ -8,7 +8,7 @@ const VersusMode = () => {
   const mapData = location.state || {
     mapId: 1,
     mapName: "One Piece",
-    mapImage: "Map/Onepiece.png",
+    mapImage: "/Map/Onepiece.png",
     boundaries: { left: 0, right: 1200, top: 0, bottom: 600 },
     player1Character: "Naruto",
     player2Character: "Luffy",
@@ -550,7 +550,7 @@ const VersusMode = () => {
         className="ultimate-indicators"
         style={{
           position: "absolute",
-          top: "140px" /* Positionné juste sous les barres de vie */,
+          top: "140px" /* Descendre sous les barres de vie */,
           left: "calc(50% - 450px)",
           width: "900px",
           display: "flex",
