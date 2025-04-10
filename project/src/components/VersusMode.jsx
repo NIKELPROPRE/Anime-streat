@@ -21,6 +21,8 @@ const VersusMode = () => {
   const [player2Hurt, setPlayer2Hurt] = useState(false);
   const player1Ref = useRef(null);
   const player2Ref = useRef(null);
+  const [player1UltimateCooldown, setPlayer1UltimateCooldown] = useState(0);
+  const [player2UltimateCooldown, setPlayer2UltimateCooldown] = useState(0);
 
   // Extraire les personnages sélectionnés
   const player1Character = mapData.player1Character;
@@ -195,11 +197,12 @@ const VersusMode = () => {
           setPlayer2Hurt(false);
         }, 500);
 
-        const healthBar = document.querySelector(".player2 .health-fill");
-        if (healthBar) {
-          healthBar.classList.add("damage-animation");
-          setTimeout(() => healthBar.classList.remove("damage-animation"), 300);
-        }
+        // Ajouter la classe damaged à la barre de vie du joueur 2
+        const player2HealthBar = document.querySelector(
+          ".health-bar-wrapper.player2"
+        );
+        player2HealthBar.classList.add("damaged");
+        setTimeout(() => player2HealthBar.classList.remove("damaged"), 300);
       }
     }
 
@@ -234,14 +237,12 @@ const VersusMode = () => {
             setPlayer2Hurt(false);
           }, 200);
 
-          const healthBar = document.querySelector(".player2 .health-fill");
-          if (healthBar) {
-            healthBar.classList.add("damage-animation");
-            setTimeout(
-              () => healthBar.classList.remove("damage-animation"),
-              300
-            );
-          }
+          // Ajouter la classe damaged à la barre de vie du joueur 2
+          const player2HealthBar = document.querySelector(
+            ".health-bar-wrapper.player2"
+          );
+          player2HealthBar.classList.add("damaged");
+          setTimeout(() => player2HealthBar.classList.remove("damaged"), 300);
         }
       }
     }
@@ -295,11 +296,12 @@ const VersusMode = () => {
           setPlayer1Hurt(false);
         }, 500);
 
-        const healthBar = document.querySelector(".player1 .health-fill");
-        if (healthBar) {
-          healthBar.classList.add("damage-animation");
-          setTimeout(() => healthBar.classList.remove("damage-animation"), 300);
-        }
+        // Ajouter la classe damaged à la barre de vie du joueur 1
+        const player1HealthBar = document.querySelector(
+          ".health-bar-wrapper.player1"
+        );
+        player1HealthBar.classList.add("damaged");
+        setTimeout(() => player1HealthBar.classList.remove("damaged"), 300);
       }
     }
   }, [mapData.boundaries, player1Character, player2Character]);
@@ -394,6 +396,42 @@ const VersusMode = () => {
     }, 100); // Attendre 100ms pour s'assurer que le DOM est prêt
   }, [mapData.mapName, mapData.boundaries]);
 
+  // Ajouter une fonction pour obtenir la couleur en fonction de la santé
+  const getHealthColor = (health) => {
+    const percentage = (health / 500) * 100;
+    if (percentage > 80) return "#4CAF50"; // Vert
+    if (percentage > 60) return "#8BC34A"; // Vert clair
+    if (percentage > 40) return "#FFEB3B"; // Jaune
+    if (percentage > 20) return "#FF9800"; // Orange
+    return "#F44336"; // Rouge
+  };
+
+  // Ajouter un useEffect pour gérer les cooldowns
+  useEffect(() => {
+    if (isPaused) return;
+
+    // Récupérer les cooldowns depuis les composants de personnage
+    const updateCooldowns = () => {
+      if (player1Ref.current) {
+        const cooldown = player1Ref.current.getUltimateCooldown?.();
+        if (typeof cooldown === "number") {
+          setPlayer1UltimateCooldown(cooldown);
+        }
+      }
+
+      if (player2Ref.current) {
+        const cooldown = player2Ref.current.getUltimateCooldown?.();
+        if (typeof cooldown === "number") {
+          setPlayer2UltimateCooldown(cooldown);
+        }
+      }
+    };
+
+    const cooldownInterval = setInterval(updateCooldowns, 100);
+
+    return () => clearInterval(cooldownInterval);
+  }, [isPaused]);
+
   return (
     <div className="versus-mode">
       {/* Background avec la map sélectionnée */}
@@ -430,27 +468,141 @@ const VersusMode = () => {
         />
       </div>
 
-      {/* Barres de vie des joueurs */}
-      <div className="health-bars">
-        <div className="health-bar-container player1">
-          <div className="health-bar-name">{player1Character}</div>
-          <div className="health-bar">
+      {/* Barres de vie des joueurs - Design amélioré */}
+      <div
+        className="health-bars-container"
+        style={{
+          position: "absolute",
+          top: "80px", // Augmenter cette valeur pour descendre les barres
+          left: "calc(50% - 450px)", // Centrer par rapport à la map
+          right: "calc(50% - 450px)",
+          width: "900px",
+          display: "flex",
+          justifyContent: "space-between",
+          zIndex: 500,
+        }}
+      >
+        <div className="health-bar-wrapper player1">
+          <div className="player-info">
+            <div className="player-name">{player1Character}</div>
+            <div className="player-number">P1</div>
+          </div>
+          <div
+            className="health-bar"
+            style={{
+              width: "280px", // Un peu plus petit que les 300px actuels
+              height: "25px",
+              backgroundColor: "rgba(0, 0, 0, 0.6)",
+              border: "2px solid white",
+              borderRadius: "12px",
+              overflow: "hidden",
+              position: "relative",
+              boxShadow: "0 0 10px rgba(0, 0, 0, 0.5)",
+            }}
+          >
             <div
               className="health-fill"
-              style={{ width: `${player1Health / 5}%` }}
+              style={{
+                width: `${(player1Health / 500) * 100}%`,
+                backgroundColor: getHealthColor(player1Health),
+              }}
             ></div>
-            <div className="health-text">{player1Health}</div>
+            <div className="health-value">
+              {Math.floor((player1Health / 500) * 100)}%
+            </div>
           </div>
         </div>
-        <div className="health-bar-container player2">
-          <div className="health-bar-name">{player2Character}</div>
-          <div className="health-bar">
+
+        <div className="health-bar-wrapper player2">
+          <div className="player-info">
+            <div className="player-name">{player2Character}</div>
+            <div className="player-number">P2</div>
+          </div>
+          <div
+            className="health-bar"
+            style={{
+              width: "280px", // Un peu plus petit que les 300px actuels
+              height: "25px",
+              backgroundColor: "rgba(0, 0, 0, 0.6)",
+              border: "2px solid white",
+              borderRadius: "12px",
+              overflow: "hidden",
+              position: "relative",
+              boxShadow: "0 0 10px rgba(0, 0, 0, 0.5)",
+            }}
+          >
             <div
               className="health-fill"
-              style={{ width: `${player2Health / 5}%` }}
+              style={{
+                width: `${(player2Health / 500) * 100}%`,
+                backgroundColor: getHealthColor(player2Health),
+              }}
             ></div>
-            <div className="health-text">{player2Health}</div>
+            <div className="health-value">
+              {Math.floor((player2Health / 500) * 100)}%
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Indicateurs d'ultime */}
+      <div className="ultimate-indicators" style={{
+        position: "absolute",
+        top: "140px", /* Positionné juste sous les barres de vie */
+        left: "calc(50% - 450px)",
+        width: "900px",
+        display: "flex",
+        justifyContent: "space-between",
+        zIndex: 500,
+      }}>
+        <div className="ultimate-indicator player1">
+          <div className="ultimate-icon">K</div>
+          <div className="ultimate-bar-container">
+            <div
+              className="ultimate-bar-fill"
+              style={{
+                width: `${
+                  player1UltimateCooldown <= 0
+                    ? 100
+                    : 100 - player1UltimateCooldown / 80
+                }%`,
+                backgroundColor:
+                  player1UltimateCooldown <= 0 ? "#f7d51d" : "#555",
+              }}
+            ></div>
+          </div>
+          {player1UltimateCooldown <= 0 ? (
+            <div className="ultimate-ready">PRÊT!</div>
+          ) : (
+            <div className="ultimate-cooldown">
+              {Math.ceil(player1UltimateCooldown / 1000)}s
+            </div>
+          )}
+        </div>
+
+        <div className="ultimate-indicator player2">
+          <div className="ultimate-icon">3</div>
+          <div className="ultimate-bar-container">
+            <div
+              className="ultimate-bar-fill"
+              style={{
+                width: `${
+                  player2UltimateCooldown <= 0
+                    ? 100
+                    : 100 - player2UltimateCooldown / 80
+                }%`,
+                backgroundColor:
+                  player2UltimateCooldown <= 0 ? "#f7d51d" : "#555",
+              }}
+            ></div>
+          </div>
+          {player2UltimateCooldown <= 0 ? (
+            <div className="ultimate-ready">PRÊT!</div>
+          ) : (
+            <div className="ultimate-cooldown">
+              {Math.ceil(player2UltimateCooldown / 1000)}s
+            </div>
+          )}
         </div>
       </div>
 

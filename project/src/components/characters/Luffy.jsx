@@ -24,7 +24,6 @@ const Luffy = forwardRef(
     const [isAttacking, setIsAttacking] = useState(false);
     const [direction, setDirection] = useState("right");
     const [currentFrame, setCurrentFrame] = useState(0);
-    const [stamina, setStamina] = useState(100); // Endurance initiale à 100%
     const [attackCooldown, setAttackCooldown] = useState(0); // Cooldown d'attaque
     const animationRef = useRef(null);
     const moveSpeed = 3;
@@ -46,8 +45,6 @@ const Luffy = forwardRef(
     const initialYRef = useRef(0); // Pour stocker la position Y initiale du saut
     const [isInAir, setIsInAir] = useState(false);
     const [verticalVelocity, setVerticalVelocity] = useState(0);
-    const staminaIntervalRef = useRef(null);
-    const staminaRegenIntervalRef = useRef(null);
     const [attackType, setAttackType] = useState("normal"); // "normal", "punch", "kickDown", "ultimate"
     const [attackLandedOnGround, setAttackLandedOnGround] = useState(false);
     const [ultimateCooldown, setUltimateCooldown] = useState(0);
@@ -62,8 +59,6 @@ const Luffy = forwardRef(
     const [isExecutingUltimate, setIsExecutingUltimate] = useState(false);
     const [isStunned, setIsStunned] = useState(false);
     const [stunTimeout, setStunTimeout] = useState(null);
-    const [ultimateBar, setUltimateBar] = useState(0);
-    const ultimateBarRef = useRef(null);
 
     const frames = {
       idle: [
@@ -362,13 +357,13 @@ const Luffy = forwardRef(
             animationSpeed = 180;
           } else if (attackType === "ultimate") {
             currentFrames = frames.ultimate;
-            animationSpeed = 250;
+            animationSpeed = 250; // Revenir à la valeur originale
           } else if (isInAir) {
             currentFrames = frames.airAttack;
             animationSpeed = 200;
           } else {
             currentFrames = frames.attack;
-            animationSpeed = 80; // Réduire de 130 à 80 pour que l'animation soit plus rapide
+            animationSpeed = 130;
           }
 
           // Mettre à jour la frame de l'animation
@@ -472,53 +467,9 @@ const Luffy = forwardRef(
       attackLandedOnGround,
     ]);
 
-    // Gestion de l'endurance
-    useEffect(() => {
-      if (isRunning) {
-        // Diminution de l'endurance pendant la course
-        staminaIntervalRef.current = setInterval(() => {
-          setStamina((prev) => {
-            if (prev <= 0) {
-              setIsRunning(false);
-              setIsStopping(true);
-              return 0;
-            }
-            return prev - 1; // Diminue plus lentement (par exemple, 1% au lieu de 5%)
-          });
-        }, 100); // Diminue toutes les 100ms
-
-        // Arrêter la régénération si elle était active
-        if (staminaRegenIntervalRef.current) {
-          clearInterval(staminaRegenIntervalRef.current);
-        }
-      } else if (stamina < 100) {
-        // Régénération de l'endurance quand on ne court pas
-        staminaRegenIntervalRef.current = setInterval(() => {
-          setStamina((prev) => {
-            if (prev >= 100) {
-              clearInterval(staminaRegenIntervalRef.current);
-              return 100;
-            }
-            return prev + 1; // Régénère plus lentement (par exemple, 1% au lieu de 2%)
-          });
-        }, 200); // Régénère plus lentement
-      }
-
-      return () => {
-        if (staminaIntervalRef.current)
-          clearInterval(staminaIntervalRef.current);
-        if (staminaRegenIntervalRef.current)
-          clearInterval(staminaRegenIntervalRef.current);
-      };
-    }, [isRunning, stamina]);
-
     useEffect(() => {
       if (isPaused) {
         // Arrêter toutes les animations et mouvements si le jeu est en pause
-        if (staminaIntervalRef.current)
-          clearInterval(staminaIntervalRef.current);
-        if (staminaRegenIntervalRef.current)
-          clearInterval(staminaRegenIntervalRef.current);
         return;
       }
 
@@ -553,12 +504,40 @@ const Luffy = forwardRef(
             attackCooldown <= 0 &&
             !isAttacking
           ) {
-            console.log(
-              isInAir ? "Attaque aérienne normale" : "Attaque au sol"
-            );
-            setAttackType("normal");
-            setIsAttacking(true);
-            setCurrentFrame(0);
+            // Correction de l'attaque vers le bas
+            if (isInAir && pressedKeys.current.has(controls.DOWN)) {
+              console.log("Exécution coup de pied vers le bas en l'air");
+              setAttackType("kickDown");
+              setIsJumping(false);
+              setAttackLandedOnGround(false);
+              setIsAttacking(true);
+              setCurrentFrame(0);
+
+              // Ajouter une vérification continue
+              const landingCheck = setInterval(() => {
+                if (!isInAir && isAttacking && attackType === "kickDown") {
+                  // Si on a touché le sol pendant l'attaque
+                  clearInterval(landingCheck);
+                  setIsAttacking(false);
+                  setAttackType("normal");
+                  setAttackLandedOnGround(false);
+                  setCurrentFrame(0);
+                } else if (!isAttacking) {
+                  // Si l'attaque est terminée
+                  clearInterval(landingCheck);
+                }
+              }, 50);
+
+              // Nettoyer l'intervalle après un certain temps
+              setTimeout(() => clearInterval(landingCheck), 2000);
+            } else {
+              console.log(
+                isInAir ? "Attaque aérienne normale" : "Attaque au sol"
+              );
+              setAttackType("normal");
+              setIsAttacking(true);
+              setCurrentFrame(0);
+            }
 
             // Arrêter le mouvement pour les attaques au sol
             if (!isInAir) {
@@ -567,7 +546,7 @@ const Luffy = forwardRef(
               setIsStopping(false);
             }
 
-            setAttackCooldown(isInAir ? 500 : 0); // Mettre 0 au lieu de 2000 pour l'attaque au sol
+            setAttackCooldown(isInAir ? 1500 : 2000); // Cooldown plus court en l'air
           } else if (
             key === controls.ATTACK2 &&
             attackCooldown <= 0 &&
@@ -592,13 +571,9 @@ const Luffy = forwardRef(
             key === controls.ULTIMATE &&
             !isInAir &&
             ultimateCooldown <= 0 &&
-            !isAttacking &&
-            ultimateBar >= 100
+            !isAttacking
           ) {
             console.log("Démarrage de l'ultime de Luffy");
-
-            // Réinitialiser la barre d'ultime
-            setUltimateBar(0);
 
             // Bloquer les touches
             setIsExecutingUltimate(true);
@@ -672,10 +647,7 @@ const Luffy = forwardRef(
             const currentTime = Date.now();
             // Vérifier si c'est un double appui rapide
             if (currentTime - lastKeyPressTime.current < DOUBLE_CLICK_DELAY) {
-              // Activer le sprint seulement si on a assez d'endurance
-              if (stamina > 5) {
-                setIsRunning(true);
-              }
+              setIsRunning(true);
             }
             lastKeyPressTime.current = currentTime;
           }
@@ -701,21 +673,19 @@ const Luffy = forwardRef(
       isAttacking,
       isInAir,
       isRunning,
-      stamina,
       isPaused,
       attackCooldown,
       ultimateCooldown,
       controls,
       isStunned,
-      ultimateBar,
     ]);
 
     // Gestion du cooldown d'attaque
     useEffect(() => {
       if (attackCooldown > 0) {
         const cooldownInterval = setInterval(() => {
-          setAttackCooldown((prev) => prev - 16);
-        }, 16);
+          setAttackCooldown((prev) => prev - 100); // Décrémenter le cooldown
+        }, 100); // Vérifier toutes les 100ms
 
         return () => clearInterval(cooldownInterval);
       }
@@ -725,8 +695,8 @@ const Luffy = forwardRef(
     useEffect(() => {
       if (ultimateCooldown > 0) {
         const cooldownInterval = setInterval(() => {
-          setUltimateCooldown((prev) => prev - 16);
-        }, 16);
+          setUltimateCooldown((prev) => prev - 100);
+        }, 100);
 
         return () => clearInterval(cooldownInterval);
       }
@@ -830,22 +800,6 @@ const Luffy = forwardRef(
     // Au début de votre rendu
     console.log("Luffy rendu avec isHurt:", isHurt);
 
-    // Ajouter un useEffect pour incrémenter la barre d'ultime avec le temps
-    useEffect(() => {
-      if (isPaused || isExecutingUltimate) return;
-
-      const ultimateBarInterval = setInterval(() => {
-        setUltimateBar((prev) => {
-          // Ne pas dépasser 100
-          if (prev >= 100) return 100;
-          // Incrémenter de 1 toutes les 500ms (20 secondes pour charger complètement)
-          return prev + 1;
-        });
-      }, 500);
-
-      return () => clearInterval(ultimateBarInterval);
-    }, [isPaused, isExecutingUltimate]);
-
     return (
       <>
         <div
@@ -861,73 +815,6 @@ const Luffy = forwardRef(
             transformOrigin: "center bottom",
           }}
         />
-        <div
-          className="stamina-bar"
-          style={{
-            position: "absolute",
-            top: "10px",
-            left: "10px",
-            width: "200px",
-            height: "20px",
-            backgroundColor: "#333",
-            borderRadius: "10px",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              width: `${stamina}%`,
-              height: "100%",
-              backgroundColor: stamina > 30 ? "#4CAF50" : "#FF5722",
-              transition: "width 0.1s linear",
-            }}
-          />
-        </div>
-        {/* Barre d'ultime */}
-        <div
-          className="ultimate-bar"
-          style={{
-            position: "absolute",
-            top: "40px", // Positionner sous la barre de stamina
-            left: "10px",
-            width: "200px",
-            height: "20px",
-            backgroundColor: "#333",
-            borderRadius: "10px",
-            overflow: "hidden",
-            border: "2px solid #e74c3c",
-          }}
-        >
-          <div
-            style={{
-              width: `${ultimateBar}%`,
-              height: "100%",
-              backgroundColor: ultimateBar >= 100 ? "#e74c3c" : "#f08080",
-              transition: "width 0.5s linear",
-              boxShadow: ultimateBar >= 100 ? "0 0 10px #e74c3c" : "none",
-            }}
-          />
-          {ultimateBar >= 100 && (
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                color: "white",
-                fontSize: "12px",
-                fontWeight: "bold",
-                textShadow: "0 0 3px black",
-              }}
-            >
-              READY
-            </div>
-          )}
-        </div>
         {/* Poing étiré (équivalent à la boule d'énergie) */}
         {energyBallActive && (
           <div

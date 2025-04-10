@@ -25,7 +25,6 @@ const Naruto = forwardRef(
     const [isAttacking, setIsAttacking] = useState(false);
     const [direction, setDirection] = useState("left");
     const [currentFrame, setCurrentFrame] = useState(0);
-    const [stamina, setStamina] = useState(100);
     const [attackCooldown, setAttackCooldown] = useState(0);
     const [ultimateCooldown, setUltimateCooldown] = useState(0);
     const [isJumping, setIsJumping] = useState(false);
@@ -44,16 +43,12 @@ const Naruto = forwardRef(
     const [isExecutingUltimate, setIsExecutingUltimate] = useState(false);
     const [isStunned, setIsStunned] = useState(false);
     const [stunTimeout, setStunTimeout] = useState(null);
-    const [ultimateBar, setUltimateBar] = useState(0);
-    const ultimateBarRef = useRef(null);
 
     // Références
     const animationRef = useRef(null);
     const pressedKeys = useRef(new Set());
     const lastKeyPressTime = useRef(0);
     const momentumRef = useRef(0);
-    const staminaIntervalRef = useRef(null);
-    const staminaRegenIntervalRef = useRef(null);
 
     // Constantes
     const moveSpeed = 3;
@@ -218,6 +213,7 @@ const Naruto = forwardRef(
       isJumping: () => isJumping,
       isEnergyBallActive: () => energyBallActive,
       getEnergyBallPosition: () => energyBallPosition,
+      getUltimateCooldown: () => ultimateCooldown,
     }));
 
     // Fonction de mise à jour de la position
@@ -493,45 +489,6 @@ const Naruto = forwardRef(
       controls,
     ]);
 
-    // Gestion de l'endurance
-    useEffect(() => {
-      if (isPaused) return;
-
-      if (isRunning) {
-        staminaIntervalRef.current = setInterval(() => {
-          setStamina((prev) => {
-            if (prev <= 0) {
-              setIsRunning(false);
-              setIsStopping(true);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 100);
-
-        if (staminaRegenIntervalRef.current) {
-          clearInterval(staminaRegenIntervalRef.current);
-        }
-      } else if (stamina < 100) {
-        staminaRegenIntervalRef.current = setInterval(() => {
-          setStamina((prev) => {
-            if (prev >= 100) {
-              clearInterval(staminaRegenIntervalRef.current);
-              return 100;
-            }
-            return prev + 1;
-          });
-        }, 200);
-      }
-
-      return () => {
-        if (staminaIntervalRef.current)
-          clearInterval(staminaIntervalRef.current);
-        if (staminaRegenIntervalRef.current)
-          clearInterval(staminaRegenIntervalRef.current);
-      };
-    }, [isRunning, stamina, isPaused]);
-
     // Gestion des entrées clavier
     useEffect(() => {
       if (isPaused || isExecutingUltimate || isStunned) return;
@@ -582,10 +539,7 @@ const Naruto = forwardRef(
             (key === controls.LEFT || key === controls.RIGHT) &&
             (!isAttacking || isInAir)
           ) {
-            if (
-              currentTime - lastKeyPressTime.current < DOUBLE_CLICK_DELAY &&
-              stamina > 20
-            ) {
+            if (currentTime - lastKeyPressTime.current < DOUBLE_CLICK_DELAY) {
               setIsRunning(true);
             }
             lastKeyPressTime.current = currentTime;
@@ -594,21 +548,49 @@ const Naruto = forwardRef(
             attackCooldown <= 0 &&
             !isAttacking
           ) {
-            console.log(
-              isInAir ? "Attaque aérienne normale" : "Attaque au sol"
-            );
-            setAttackType("normal");
-            setIsAttacking(true);
-            setCurrentFrame(0);
+            console.log("Exécution attaque normale");
+            if (isInAir && pressedKeys.current.has(controls.DOWN)) {
+              console.log("Exécution coup de pied vers le bas en l'air");
+              setAttackType("kickDown");
+              setIsJumping(false);
+              setAttackLandedOnGround(false);
 
-            // Arrêter le mouvement pour les attaques au sol
-            if (!isInAir) {
-              setIsMoving(false);
+              const landingCheck = setInterval(() => {
+                if (!isInAir && isAttacking && attackType === "kickDown") {
+                  clearInterval(landingCheck);
+                  setIsAttacking(false);
+                  setAttackType("normal");
+                  setAttackLandedOnGround(false);
+                  setCurrentFrame(0);
+                } else if (!isAttacking) {
+                  clearInterval(landingCheck);
+                }
+              }, 50);
+
+              setTimeout(() => clearInterval(landingCheck), 2000);
+            } else if (isInAir) {
+              console.log("Exécution attaque en l'air");
+              setAttackType("airAttack");
+              setIsJumping(false);
+            } else if (pressedKeys.current.has(controls.DOWN)) {
+              console.log("Exécution attaque vers le bas au sol");
+              setAttackType("downAttack");
+            } else if (pressedKeys.current.has(controls.JUMP)) {
+              console.log("Exécution attaque vers le haut au sol");
+              setAttackType("upAttack");
+            } else if (isRunning) {
+              console.log("Exécution attaque en course");
+              setAttackType("rushAttack");
               setIsRunning(false);
               setIsStopping(false);
+              momentumRef.current = 0;
+            } else {
+              setAttackType("punch");
             }
 
-            setAttackCooldown(isInAir ? 500 : 0); // Réduire le cooldown à 0 comme pour Luffy
+            setIsAttacking(true);
+            setCurrentFrame(0);
+            setAttackCooldown(1500);
           } else if (
             key === controls.ATTACK2 &&
             attackCooldown <= 0 &&
@@ -629,13 +611,10 @@ const Naruto = forwardRef(
           } else if (
             key === controls.ULTIMATE &&
             !isInAir &&
-            !isAttacking &&
-            ultimateBar >= 100 // Ajouter cette vérification pour la barre d'ultime
+            ultimateCooldown <= 0 &&
+            !isAttacking
           ) {
             console.log("Démarrage de l'ultime");
-
-            // Réinitialiser la barre d'ultime
-            setUltimateBar(0);
 
             // Bloquer les touches
             setIsExecutingUltimate(true);
@@ -779,7 +758,6 @@ const Naruto = forwardRef(
       isAttacking,
       isInAir,
       isRunning,
-      stamina,
       isPaused,
       attackCooldown,
       ultimateCooldown,
@@ -844,22 +822,6 @@ const Naruto = forwardRef(
       }
     }, [isHurt]);
 
-    // Ajouter un useEffect pour incrémenter la barre d'ultime avec le temps (après ligne 830)
-    useEffect(() => {
-      if (isPaused || isExecutingUltimate) return;
-
-      const ultimateBarInterval = setInterval(() => {
-        setUltimateBar((prev) => {
-          // Ne pas dépasser 100
-          if (prev >= 100) return 100;
-          // Incrémenter de 1 toutes les 500ms (20 secondes pour charger complètement)
-          return prev + 1;
-        });
-      }, 500);
-
-      return () => clearInterval(ultimateBarInterval);
-    }, [isPaused, isExecutingUltimate]);
-
     // Détermination des frames actuelles
     const getCurrentFrames = () => {
       if (isHurt) return frames.hurt;
@@ -910,7 +872,7 @@ const Naruto = forwardRef(
 
         {/* Sprite Naruto grossi et avancé */}
         <div
-          className={`naruto-sprite ${direction === "left" ? "flip" : ""}`}
+          className="naruto-sprite"
           style={{
             left: `${currentPosition.x}px`,
             top: `${currentPosition.y}px`,
@@ -942,76 +904,6 @@ const Naruto = forwardRef(
             }}
           />
         )}
-
-        {/* Barre de stamina */}
-        <div
-          className="stamina-bar"
-          style={{
-            position: "absolute",
-            top: "10px",
-            left: "10px",
-            width: "200px",
-            height: "20px",
-            backgroundColor: "#333",
-            borderRadius: "10px",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              width: `${stamina}%`,
-              height: "100%",
-              backgroundColor: stamina > 30 ? "#4CAF50" : "#FF5722",
-              transition: "width 0.1s linear",
-            }}
-          />
-        </div>
-
-        {/* Barre d'ultime */}
-        <div
-          className="ultimate-bar"
-          style={{
-            position: "absolute",
-            top: "40px", // Positionner sous la barre de stamina
-            left: "10px",
-            width: "200px",
-            height: "20px",
-            backgroundColor: "#333",
-            borderRadius: "10px",
-            overflow: "hidden",
-            border: "2px solid #8f5df3",
-          }}
-        >
-          <div
-            style={{
-              width: `${ultimateBar}%`,
-              height: "100%",
-              backgroundColor: ultimateBar >= 100 ? "#8f5df3" : "#b897f8",
-              transition: "width 0.5s linear",
-              boxShadow: ultimateBar >= 100 ? "0 0 10px #8f5df3" : "none",
-            }}
-          />
-          {ultimateBar >= 100 && (
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                color: "white",
-                fontSize: "12px",
-                fontWeight: "bold",
-                textShadow: "0 0 3px black",
-              }}
-            >
-              READY
-            </div>
-          )}
-        </div>
 
         {/* Overlay de l'ultime */}
         {showUltimateOverlay && (
