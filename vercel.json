@@ -3,7 +3,7 @@
     { "src": "/Map/(.*)", "dest": "/Map/$1" },
     { "handle": "filesystem" }
   ],
+  "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": "build",
-  "framework": "react"
+  "outputDirectory": "dist"
 }
