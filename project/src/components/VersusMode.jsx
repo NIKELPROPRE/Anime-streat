@@ -546,15 +546,18 @@ const VersusMode = () => {
       </div>
 
       {/* Indicateurs d'ultime */}
-      <div className="ultimate-indicators" style={{
-        position: "absolute",
-        top: "140px", /* Positionné juste sous les barres de vie */
-        left: "calc(50% - 450px)",
-        width: "900px",
-        display: "flex",
-        justifyContent: "space-between",
-        zIndex: 500,
-      }}>
+      <div
+        className="ultimate-indicators"
+        style={{
+          position: "absolute",
+          top: "140px" /* Positionné juste sous les barres de vie */,
+          left: "calc(50% - 450px)",
+          width: "900px",
+          display: "flex",
+          justifyContent: "space-between",
+          zIndex: 500,
+        }}
+      >
         <div className="ultimate-indicator player1">
           <div className="ultimate-icon">K</div>
           <div className="ultimate-bar-container">
