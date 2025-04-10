@@ -1,11 +1,24 @@
 import React, { useState } from "react";
 import "../styles/MainMenu.css";
 import TestScene from "./TestScene";
+import { useNavigate } from "react-router-dom";
 
 const MainMenu = () => {
   const [selectedOption, setSelectedOption] = useState(0);
   const [showTestScene, setShowTestScene] = useState(false);
-  const menuOptions = ["Versus Bot", "Two Players", "Settings", "Test Luffy"];
+  const navigate = useNavigate();
+
+  // Simplifiez les options du menu pour éliminer les erreurs potentielles
+  const menuOptions = [
+    { label: "Mode Histoire", disabled: true },
+    { label: "Versus Bot", route: "/versus-bot" },
+    { label: "Two Player", route: "/two-player" },
+    { label: "Settings", route: "/settings" },
+    { label: "Test Luffy", route: "/test-luffy" },
+    { label: "Test Naruto", route: "/test-naruto" },
+    { label: "Options", disabled: true },
+    { label: "Crédits", disabled: true },
+  ];
 
   const handleKeyDown = (e) => {
     switch (e.key) {
@@ -28,21 +41,17 @@ const MainMenu = () => {
   };
 
   const handleOptionSelect = (index) => {
-    switch (index) {
-      case 0:
-        console.log("Versus Bot selected");
-        break;
-      case 1:
-        console.log("Two Players selected");
-        break;
-      case 2:
-        console.log("Settings selected");
-        break;
-      case 3:
-        setShowTestScene(true);
-        break;
-      default:
-        break;
+    if (index >= 0 && index < menuOptions.length) {
+      const option = menuOptions[index];
+      if (option && !option.disabled && option.route) {
+        navigate(option.route);
+      }
+    }
+  };
+
+  const handleOptionClick = (option, index) => {
+    if (option && !option.disabled && option.route) {
+      navigate(option.route);
     }
   };
 
@@ -59,10 +68,10 @@ const MainMenu = () => {
             key={index}
             className={`menu-option ${
               selectedOption === index ? "selected" : ""
-            }`}
-            onClick={() => handleOptionSelect(index)}
+            } ${option.disabled ? "disabled" : ""}`}
+            onClick={() => handleOptionClick(option, index)}
           >
-            {option}
+            {option.label}
           </div>
         ))}
       </div>

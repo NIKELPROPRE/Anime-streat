@@ -2,12 +2,11 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import MainMenu from "./components/MainMenu";
 import VersusBot from "./components/VersusBot";
+import TwoPlayer from "./components/TwoPlayer";
+import Settings from "./components/Settings";
 import TestLuffy from "./components/TestLuffy";
 import TestNaruto from "./components/TestNaruto";
-import CharacterSelection from "./components/CharacterSelection";
-import VersusMode from "./components/VersusMode";
-import MapSelection from "./components/MapSelection";
-import "./App.css";
+import TestCharacters from "./components/TestCharacters";
 
 function App() {
   return (
@@ -15,12 +14,12 @@ function App() {
       <Routes>
         <Route path="/" element={<MainMenu />} />
         <Route path="/versus-bot" element={<VersusBot />} />
-        <Route path="/two-player" element={<CharacterSelection />} />
+        <Route path="/two-player" element={<TwoPlayer />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="/test-luffy" element={<TestLuffy />} />
         <Route path="/test-naruto" element={<TestNaruto />} />
-        <Route path="/versus" element={<VersusMode />} />
-        <Route path="/character-selection" element={<CharacterSelection />} />
-        <Route path="/map-selection" element={<MapSelection />} />
+        <Route path="/test-characters" element={<TestCharacters />} />
+        {/* Autres routes si nécessaire */}
       </Routes>
     </Router>
   );

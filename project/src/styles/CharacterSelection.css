@@ -1,0 +1,89 @@
+.character-selection {
+  background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d);
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.character-selection h1 {
+  color: white;
+  font-size: 2.5rem;
+  margin-bottom: 3rem;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.selection-area {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
+}
+
+.player-selection {
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 2rem;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  width: 300px;
+}
+
+.player-selection.confirmed {
+  background-color: rgba(39, 174, 96, 0.7);
+}
+
+.player-selection h2 {
+  color: white;
+  margin-bottom: 1.5rem;
+}
+
+.character-card {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+.character-image {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  margin-bottom: 1rem;
+}
+
+.character-name {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.controls-hint {
+  color: #f0f0f0;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+}
+
+.confirmed-text {
+  color: #2ecc71;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-top: 1rem;
+}
+
+.vs-sign {
+  color: white;
+  font-size: 3rem;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+}

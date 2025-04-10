@@ -1,13 +1,13 @@
-.luffy-sprite {
+.naruto-sprite {
   position: absolute;
-  background: url("/Sprite/luffy.png") no-repeat;
+  background: url("/Sprite/Naruto.png") no-repeat;
   transform: scale(1.5);
   transform-origin: center;
   width: 30px;
   height: 46px;
 }
 
-.luffy-sprite.flip {
+.naruto-sprite.flip {
   transform: scale(1.5) scaleX(-1);
 }
 
@@ -18,6 +18,6 @@
   }
   100% {
     transform: scale(1.1);
-    filter: brightness(1.3) drop-shadow(0 0 20px rgba(255, 51, 51, 0.8));
+    filter: brightness(1.3) drop-shadow(0 0 20px rgba(255, 165, 0, 0.8));
   }
 }
