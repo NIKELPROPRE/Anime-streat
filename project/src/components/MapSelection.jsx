@@ -2,30 +2,32 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../styles/MapSelection.css";
 
+// Corriger les imports d'images - le dossier public est à la racine
+const maps = [
+  {
+    id: 1,
+    name: "One Piece",
+    image: "/Map/Onepiece.png", // Chemin depuis la racine public
+    boundaries: { left: 0, right: 1200, top: 0, bottom: 600 },
+  },
+  {
+    id: 2,
+    name: "Naruto",
+    image: "/Map/konoha.jpg", // Chemin depuis la racine public
+    boundaries: { left: 0, right: 1200, top: 0, bottom: 600 },
+  },
+  {
+    id: 3,
+    name: "Hunter x Hunter",
+    image: "/Map/JS-HunterXHunter.png", // Chemin depuis la racine public
+    boundaries: { left: 0, right: 516, top: 0, bottom: 484 },
+    frameCoordinates: { x: 0, y: 0, width: 516, height: 484 },
+  },
+];
+
 const MapSelection = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [maps, setMaps] = useState([
-    {
-      id: 1,
-      name: "One Piece",
-      image: "/Map/Onepiece.png",
-      boundaries: { left: 0, right: 1200, top: 0, bottom: 600 },
-    },
-    {
-      id: 2,
-      name: "Naruto",
-      image: "/Map/konoha.jpg",
-      boundaries: { left: 0, right: 1200, top: 0, bottom: 600 },
-    },
-    {
-      id: 3,
-      name: "Hunter x Hunter",
-      image: "/Map/JS-HunterXHunter.png",
-      boundaries: { left: 0, right: 516, top: 0, bottom: 484 },
-      frameCoordinates: { x: 0, y: 0, width: 516, height: 484 },
-    },
-  ]);
 
   const [player1Selection, setPlayer1Selection] = useState(0);
   const [player2Selection, setPlayer2Selection] = useState(0);
@@ -120,6 +122,13 @@ const MapSelection = () => {
     navigate,
     location.state,
   ]);
+
+  useEffect(() => {
+    console.log(
+      "Map images paths:",
+      maps.map((map) => map.image)
+    );
+  }, [maps]);
 
   return (
     <div className="map-selection">

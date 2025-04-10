@@ -1,3 +1,9 @@
 {
-  "routes": [{ "src": "/Map/(.*)", "dest": "/Map/$1" }]
+  "routes": [
+    { "src": "/Map/(.*)", "dest": "/Map/$1" },
+    { "handle": "filesystem" }
+  ],
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "framework": "react"
 }
