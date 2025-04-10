@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "../styles/MainMenu.css";
 import TestScene from "./TestScene";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +7,8 @@ const MainMenu = () => {
   const [selectedOption, setSelectedOption] = useState(0);
   const [showTestScene, setShowTestScene] = useState(false);
   const navigate = useNavigate();
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const backgroundMusicRef = useRef(null);
 
   // Simplifiez les options du menu pour éliminer les erreurs potentielles
   const menuOptions = [
@@ -14,8 +16,6 @@ const MainMenu = () => {
     { label: "Versus Bot", route: "/versus-bot" },
     { label: "Two Player", route: "/two-player" },
     { label: "Settings", route: "/settings" },
-    { label: "Test Luffy", route: "/test-luffy" },
-    { label: "Test Naruto", route: "/test-naruto" },
     { label: "Options", disabled: true },
     { label: "Crédits", disabled: true },
   ];
@@ -55,13 +55,38 @@ const MainMenu = () => {
     }
   };
 
+  useEffect(() => {
+    backgroundMusicRef.current = new Audio(
+      "/Sound/Most Epic Anime OST - Requiem Aranea! (2).mp3"
+    );
+    backgroundMusicRef.current.volume = 0.3;
+    backgroundMusicRef.current.loop = true;
+
+    return () => {
+      if (backgroundMusicRef.current) {
+        backgroundMusicRef.current.pause();
+      }
+    };
+  }, []);
+
+  const toggleMusic = () => {
+    if (musicPlaying) {
+      backgroundMusicRef.current.pause();
+    } else {
+      backgroundMusicRef.current.play();
+    }
+    setMusicPlaying(!musicPlaying);
+  };
+
   if (showTestScene) {
     return <TestScene onBack={() => setShowTestScene(false)} />;
   }
 
   return (
     <div className="main-menu" tabIndex="0" onKeyDown={handleKeyDown}>
-      <h1 className="game-title">Anime Fighter</h1>
+      <h1 className="game-title">
+        Anime <span className="highlight">Fighter</span>
+      </h1>
       <div className="menu-options">
         {menuOptions.map((option, index) => (
           <div
@@ -75,6 +100,23 @@ const MainMenu = () => {
           </div>
         ))}
       </div>
+      <button
+        className="music-toggle"
+        onClick={toggleMusic}
+        style={{
+          position: "absolute",
+          bottom: "10px",
+          right: "10px",
+          background: "none",
+          border: "none",
+          color: "white",
+          fontSize: "24px",
+          cursor: "pointer",
+          opacity: "0.7",
+        }}
+      >
+        {musicPlaying ? "🔊" : "🔈"}
+      </button>
     </div>
   );
 };

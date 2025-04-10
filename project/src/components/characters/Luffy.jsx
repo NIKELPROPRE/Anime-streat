@@ -597,7 +597,7 @@ const Luffy = forwardRef(
                 setIsAttacking(true);
                 setAttackType("ultimate");
                 setCurrentFrame(0);
-                setUltimateCooldown(8000);
+                setUltimateCooldown(30000);
 
                 // Terminer l'attaque à la fin du son
                 setTimeout(
@@ -633,7 +633,7 @@ const Luffy = forwardRef(
                 setIsAttacking(true);
                 setAttackType("ultimate");
                 setCurrentFrame(0);
-                setUltimateCooldown(8000);
+                setUltimateCooldown(30000);
 
                 setTimeout(() => {
                   setIsAttacking(false);
@@ -784,6 +784,7 @@ const Luffy = forwardRef(
 
     useImperativeHandle(ref, () => ({
       getPosition: () => currentPosition,
+      setPosition: (newPosition) => setCurrentPosition(newPosition),
       isAttacking: () => isAttacking,
       getAttackType: () => attackType,
       getDirection: () => direction,
@@ -795,7 +796,13 @@ const Luffy = forwardRef(
         }, duration);
         setStunTimeout(timeout);
       },
+      getUltimateCooldown: () => ultimateCooldown,
     }));
+
+    // Ajoutez cette fonction si elle n'existe pas déjà
+    const getUltimateCooldown = () => {
+      return ultimateCooldown;
+    };
 
     // Au début de votre rendu
     console.log("Luffy rendu avec isHurt:", isHurt);

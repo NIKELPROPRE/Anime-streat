@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Character from "./characters/Character";
 import "../styles/VersusMode.css";
 
@@ -8,7 +8,12 @@ const VersusMode = () => {
   const mapData = location.state || {
     mapId: 1,
     mapName: "One Piece",
-    mapImage: "/Map/Onepiece.png",
+    mapImage:
+      mapData.mapName === "Hunter x Hunter"
+        ? "../../Map/JS-HunterXHunter.png"
+        : mapData.mapName === "Naruto"
+        ? "../../Map/konoha.jpg"
+        : "../../Map/Onepiece.png",
     boundaries: { left: 0, right: 1200, top: 0, bottom: 600 },
     player1Character: "Naruto",
     player2Character: "Luffy",
@@ -23,6 +28,9 @@ const VersusMode = () => {
   const player2Ref = useRef(null);
   const [player1UltimateCooldown, setPlayer1UltimateCooldown] = useState(0);
   const [player2UltimateCooldown, setPlayer2UltimateCooldown] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [winner, setWinner] = useState(null);
+  const navigate = useNavigate();
 
   // Extraire les personnages sélectionnés
   const player1Character = mapData.player1Character;
@@ -142,55 +150,63 @@ const VersusMode = () => {
       }
     }
 
-    // ===== VÉRIFICATION GÉNÉRALE DES COLLISIONS D'ATTAQUES =====
+    // ===== SYSTÈME DE HITBOX AMÉLIORÉ =====
 
-    // Joueur 1 attaque Joueur 2
+    // Configuration des hitbox et dégâts pour les différentes attaques
+    const attackConfig = {
+      normal: { width: 40, height: 60, damage: 5, stunTime: 300 },
+      punch: { width: 45, height: 65, damage: 10, stunTime: 400 },
+      powerAttack: { width: 60, height: 70, damage: 20, stunTime: 600 },
+      kickDown: { width: 50, height: 70, damage: 15, stunTime: 500 },
+      rushAttack: { width: 55, height: 60, damage: 12, stunTime: 350 },
+      downAttack: { width: 50, height: 40, damage: 12, stunTime: 400 },
+      upAttack: { width: 45, height: 80, damage: 12, stunTime: 350 },
+      airAttack: { width: 55, height: 60, damage: 15, stunTime: 450 },
+      ultimateCharge: { width: 60, height: 70, damage: 5, stunTime: 300 },
+      ultimateRush: { width: 70, height: 70, damage: 25, stunTime: 700 },
+    };
+
+    // === JOUEUR 1 ATTAQUE JOUEUR 2 ===
     if (player1Attacking && !player2Hurt) {
-      // Détecter les collisions normales
-      let hitboxWidth = 30;
+      // Récupérer la configuration de l'attaque actuelle
+      const attack = attackConfig[player1AttackType] || attackConfig.normal;
 
-      // Élargir la hitbox pour les attaques spéciales
+      // Calculer la position de la hitbox en fonction de la direction
+      const hitboxOffsetX = player1Direction === "right" ? 40 : -attack.width;
+
+      // Créer la hitbox
+      const attackHitbox = {
+        x: player1Position.x + hitboxOffsetX,
+        y: player1Position.y - attack.height / 2,
+        width: attack.width,
+        height: attack.height,
+      };
+
+      // Créer la hitbox du joueur 2
+      const player2Hitbox = {
+        x: player2Position.x - 25,
+        y: player2Position.y - 60,
+        width: 50,
+        height: 80,
+      };
+
+      // Vérifier si l'attaque touche (collision AABB)
       if (
-        player1AttackType === "powerAttack" ||
-        player1AttackType === "ultimate" ||
-        player1AttackType === "ultimateRush"
-      ) {
-        hitboxWidth = 10;
-      }
-
-      // Position de l'attaque basée sur la direction
-      const attackX =
-        player1Direction === "right"
-          ? player1Position.x + 40
-          : player1Position.x - hitboxWidth;
-
-      // Vérifier si l'attaque touche
-      if (
-        Math.abs(attackX - player2Position.x) < hitboxWidth &&
-        Math.abs(player1Position.y - player2Position.y) < 60
+        attackHitbox.x < player2Hitbox.x + player2Hitbox.width &&
+        attackHitbox.x + attackHitbox.width > player2Hitbox.x &&
+        attackHitbox.y < player2Hitbox.y + player2Hitbox.height &&
+        attackHitbox.y + attackHitbox.height > player2Hitbox.y
       ) {
         console.log(`Player 1 a touché Player 2 avec ${player1AttackType}!`);
 
-        // Calculer les dégâts selon le type d'attaque
-        let damage = 2; // Réduit de 5 à 2 (dégâts de base)
-
-        if (player1AttackType === "powerAttack") damage = 8; // Réduit de 15 à 8
-        else if (player1AttackType === "kickDown")
-          damage = 6; // Réduit de 12 à 6
-        else if (
-          player1AttackType === "ultimate" ||
-          player1AttackType === "ultimateRush"
-        )
-          damage = 10; // Réduit de 15 à 10
-
         // Appliquer les dégâts
-        setPlayer2Health((prev) => Math.max(0, prev - damage));
+        setPlayer2Health((prev) => Math.max(0, prev - attack.damage));
 
         // Déclencher l'animation hurt
         setPlayer2Hurt(true);
 
-        // Stun le joueur pendant 0.5 secondes
-        player2Ref.current.stun(500);
+        // Stun le joueur
+        player2Ref.current.stun(attack.stunTime);
 
         // Réinitialiser l'état hurt après l'animation
         setTimeout(() => {
@@ -212,32 +228,45 @@ const VersusMode = () => {
       player1Ref.current.isEnergyBallActive?.() &&
       !player2Hurt
     ) {
-      // Position de la boule d'énergie
       const energyBallPos = player1Ref.current.getEnergyBallPosition?.();
 
       if (energyBallPos) {
-        // Vérifier si la boule d'énergie touche le joueur 2
+        // Hitbox plus précise pour la boule d'énergie
+        const energyBallHitbox = {
+          x: energyBallPos.x - 40,
+          y: energyBallPos.y - 40,
+          width: 80,
+          height: 80,
+        };
+
+        // Hitbox du joueur 2
+        const player2Hitbox = {
+          x: player2Position.x - 25,
+          y: player2Position.y - 60,
+          width: 50,
+          height: 80,
+        };
+
+        // Vérifier collision
         if (
-          Math.abs(energyBallPos.x - player2Position.x) < 70 &&
-          Math.abs(energyBallPos.y - player2Position.y) < 80
+          energyBallHitbox.x < player2Hitbox.x + player2Hitbox.width &&
+          energyBallHitbox.x + energyBallHitbox.width > player2Hitbox.x &&
+          energyBallHitbox.y < player2Hitbox.y + player2Hitbox.height &&
+          energyBallHitbox.y + energyBallHitbox.height > player2Hitbox.y
         ) {
           console.log("Boule d'énergie de Naruto a touché Player 2!");
 
-          // Appliquer les dégâts
-          setPlayer2Health((prev) => Math.max(0, prev - 3));
+          // Dégâts de la boule d'énergie (plus forts)
+          setPlayer2Health((prev) => Math.max(0, prev - 8));
 
-          // Déclencher l'animation hurt
+          // Effet visuel et stun plus court
           setPlayer2Hurt(true);
+          player2Ref.current.stun(250);
 
-          // Stun le joueur pendant 0.2 secondes (moins long car frappe continue)
-          player2Ref.current.stun(200);
-
-          // Réinitialiser l'état hurt après l'animation
           setTimeout(() => {
             setPlayer2Hurt(false);
           }, 200);
 
-          // Ajouter la classe damaged à la barre de vie du joueur 2
           const player2HealthBar = document.querySelector(
             ".health-bar-wrapper.player2"
           );
@@ -247,49 +276,47 @@ const VersusMode = () => {
       }
     }
 
-    // Joueur 2 attaque Joueur 1
+    // === JOUEUR 2 ATTAQUE JOUEUR 1 ===
     if (player2Attacking && !player1Hurt) {
-      // Détecter les collisions normales
-      let hitboxWidth = 30;
+      // Récupérer la configuration de l'attaque actuelle
+      const attack = attackConfig[player2AttackType] || attackConfig.normal;
 
-      // Élargir la hitbox pour les attaques spéciales
+      // Calculer la position de la hitbox en fonction de la direction
+      const hitboxOffsetX = player2Direction === "right" ? 40 : -attack.width;
+
+      // Créer la hitbox
+      const attackHitbox = {
+        x: player2Position.x + hitboxOffsetX,
+        y: player2Position.y - attack.height / 2,
+        width: attack.width,
+        height: attack.height,
+      };
+
+      // Créer la hitbox du joueur 1
+      const player1Hitbox = {
+        x: player1Position.x - 25,
+        y: player1Position.y - 60,
+        width: 50,
+        height: 80,
+      };
+
+      // Vérifier si l'attaque touche (collision AABB)
       if (
-        player2AttackType === "punch" ||
-        player2AttackType === "ultimate" ||
-        player2AttackType === "powerAttack"
-      ) {
-        hitboxWidth = 30;
-      }
-
-      // Position de l'attaque basée sur la direction
-      const attackX =
-        player2Direction === "right"
-          ? player2Position.x + 40
-          : player2Position.x - hitboxWidth;
-
-      // Vérifier si l'attaque touche
-      if (
-        Math.abs(attackX - player1Position.x) < hitboxWidth &&
-        Math.abs(player2Position.y - player1Position.y) < 60
+        attackHitbox.x < player1Hitbox.x + player1Hitbox.width &&
+        attackHitbox.x + attackHitbox.width > player1Hitbox.x &&
+        attackHitbox.y < player1Hitbox.y + player1Hitbox.height &&
+        attackHitbox.y + attackHitbox.height > player1Hitbox.y
       ) {
         console.log(`Player 2 a touché Player 1 avec ${player2AttackType}!`);
 
-        // Calculer les dégâts selon le type d'attaque
-        let damage = 2; // Réduit de 5 à 2 (dégâts de base)
-
-        if (player2AttackType === "punch") damage = 8; // Réduit de 15 à 8
-        else if (player2AttackType === "kickDown")
-          damage = 6; // Réduit de 12 à 6
-        else if (player2AttackType === "ultimate") damage = 10; // Réduit de 15 à 10
-
         // Appliquer les dégâts
-        setPlayer1Health((prev) => Math.max(0, prev - damage));
+        setPlayer1Health((prev) => Math.max(0, prev - attack.damage));
 
         // Déclencher l'animation hurt
         setPlayer1Hurt(true);
 
-        // Stun le joueur pendant 0.5 secondes ou plus pour l'ultime
-        player1Ref.current.stun(player2AttackType === "ultimate" ? 800 : 500);
+        // Stun le joueur
+        player1Ref.current.stun(attack.stunTime);
 
         // Réinitialiser l'état hurt après l'animation
         setTimeout(() => {
@@ -322,78 +349,44 @@ const VersusMode = () => {
 
   // Ajouter un useEffect pour calculer les positions en fonction de la map
   useEffect(() => {
-    // Attendre que les éléments du DOM soient prêts
     setTimeout(() => {
-      // Obtenir les dimensions de la fenêtre
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
-
-      // Récupérer l'élément de fond de la map
       const mapElement = document.querySelector(".game-background");
 
       if (mapElement) {
-        // Obtenir les dimensions et position réelles de la map
         const mapRect = mapElement.getBoundingClientRect();
-
         console.log("Dimensions de la map:", mapRect);
 
-        // Calculer les positions Y selon le type de map
-        let p1Y, p2Y;
+        let p1X, p2X, p1Y, p2Y;
 
-        if (mapData.mapName === "Naruto") {
-          // Pour Konoha, placer les personnages près du bas de la map
+        if (mapData.mapName === "Hunter x Hunter") {
+          // Utiliser les dimensions spécifiques pour HxH
+          p1X = mapData.boundaries.left + 150; // Position à gauche
+          p2X = mapData.boundaries.right - 150; // Position à droite
+          p1Y = mapData.boundaries.bottom - 80; // Position en bas
+          p2Y = mapData.boundaries.bottom - 80;
+        } else if (mapData.mapName === "Naruto") {
+          // Pour Konoha, placer les personnages près du bas
+          p1X = mapRect.left + mapRect.width / 3;
+          p2X = mapRect.left + (mapRect.width * 2) / 3;
           p1Y = mapRect.bottom - 100;
           p2Y = mapRect.bottom - 100;
         } else {
           // Pour les autres maps
+          p1X = mapRect.left + mapRect.width / 3;
+          p2X = mapRect.left + (mapRect.width * 2) / 3;
           p1Y = mapRect.bottom - 120;
           p2Y = mapRect.bottom - 120;
         }
-
-        // Calculer les positions X (un tiers et deux tiers de la largeur)
-        const p1X = mapRect.left + mapRect.width / 3;
-        const p2X = mapRect.left + (mapRect.width * 2) / 3;
 
         console.log(`Positions calculées pour ${mapData.mapName}:`, {
           p1: { x: p1X, y: p1Y },
           p2: { x: p2X, y: p2Y },
         });
 
-        // Mettre à jour les positions
-        setPlayer1Position({
-          x: p1X,
-          y: p1Y,
-        });
-
-        setPlayer2Position({
-          x: p2X,
-          y: p2Y,
-        });
-
-        // Mettre à jour les limites de la map en fonction de ses dimensions réelles
-        if (mapData.boundaries) {
-          mapData.boundaries = {
-            left: mapRect.left + 10,
-            right: mapRect.right - 10,
-            top: mapRect.top + 10,
-            bottom: mapRect.bottom - 10,
-          };
-        }
-      } else {
-        console.error("Élément de map non trouvé");
-
-        // Position par défaut si la map n'est pas encore chargée
-        setPlayer1Position({
-          x: windowWidth / 2 - 300,
-          y: windowHeight / 2 + 180,
-        });
-
-        setPlayer2Position({
-          x: windowWidth / 2 + 300,
-          y: windowHeight / 2 + 180,
-        });
+        setPlayer1Position({ x: p1X, y: p1Y });
+        setPlayer2Position({ x: p2X, y: p2Y });
       }
-    }, 100); // Attendre 100ms pour s'assurer que le DOM est prêt
+    }, 100);
   }, [mapData.mapName, mapData.boundaries]);
 
   // Ajouter une fonction pour obtenir la couleur en fonction de la santé
@@ -412,18 +405,36 @@ const VersusMode = () => {
 
     // Récupérer les cooldowns depuis les composants de personnage
     const updateCooldowns = () => {
-      if (player1Ref.current) {
-        const cooldown = player1Ref.current.getUltimateCooldown?.();
-        if (typeof cooldown === "number") {
-          setPlayer1UltimateCooldown(cooldown);
+      try {
+        if (
+          player1Ref.current &&
+          typeof player1Ref.current.getUltimateCooldown === "function"
+        ) {
+          const cooldown = player1Ref.current.getUltimateCooldown();
+          if (typeof cooldown === "number") {
+            setPlayer1UltimateCooldown(cooldown);
+          }
         }
-      }
 
-      if (player2Ref.current) {
-        const cooldown = player2Ref.current.getUltimateCooldown?.();
-        if (typeof cooldown === "number") {
-          setPlayer2UltimateCooldown(cooldown);
+        if (
+          player2Ref.current &&
+          typeof player2Ref.current.getUltimateCooldown === "function"
+        ) {
+          const cooldown = player2Ref.current.getUltimateCooldown();
+          if (typeof cooldown === "number") {
+            setPlayer2UltimateCooldown(cooldown);
+          }
         }
+
+        console.log("Cooldown P1:", player1UltimateCooldown);
+        console.log("Cooldown P2:", player2UltimateCooldown);
+        console.log("P2 ref exists:", !!player2Ref.current);
+        console.log(
+          "P2 method exists:",
+          !!(player2Ref.current && player2Ref.current.getUltimateCooldown)
+        );
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour des cooldowns:", error);
       }
     };
 
@@ -432,18 +443,78 @@ const VersusMode = () => {
     return () => clearInterval(cooldownInterval);
   }, [isPaused]);
 
+  // Ajouter cet useEffect pour la musique de fond
+  useEffect(() => {
+    // Créer un nouvel élément audio
+    const backgroundMusic = new Audio(
+      "/Sound/Most Epic Anime OST - Requiem Aranea! (2).mp3"
+    );
+    backgroundMusic.volume = 0.3; // Volume à 30%
+    backgroundMusic.loop = true; // En boucle
+
+    // Jouer la musique
+    backgroundMusic.play().catch((error) => {
+      console.log("Autoplay empêché par le navigateur:", error);
+    });
+
+    // Pause/reprise en fonction de l'état du jeu
+    if (isPaused) {
+      backgroundMusic.pause();
+    } else {
+      backgroundMusic.play().catch((e) => console.log(e));
+    }
+
+    // Nettoyer lors du démontage du composant
+    return () => {
+      backgroundMusic.pause();
+      backgroundMusic.currentTime = 0;
+    };
+  }, [isPaused]);
+
+  // Ajoutez cette fonction pour vérifier la fin du jeu (vers ligne 150)
+  const checkGameOver = useCallback(() => {
+    if (player1Health <= 0) {
+      setGameOver(true);
+      setWinner(player2Character);
+      // Retourner à la sélection des personnages après 5 secondes
+      setTimeout(() => {
+        navigate("/character-selection");
+      }, 5000);
+    } else if (player2Health <= 0) {
+      setGameOver(true);
+      setWinner(player1Character);
+      // Retourner à la sélection des personnages après 5 secondes
+      setTimeout(() => {
+        navigate("/character-selection");
+      }, 5000);
+    }
+  }, [
+    player1Health,
+    player2Health,
+    player1Character,
+    player2Character,
+    navigate,
+  ]);
+
+  // Ajoutez cet useEffect pour vérifier la fin du jeu (vers ligne 220)
+  useEffect(() => {
+    checkGameOver();
+  }, [player1Health, player2Health, checkGameOver]);
+
   return (
     <div className="versus-mode">
       {/* Background avec la map sélectionnée */}
       <div
         className="game-background"
         style={{
-          backgroundImage: `url(${mapData.mapImage})`,
-          backgroundPosition: "center",
-          width: "1000px",
-          height: "550px",
-          backgroundSize: "cover",
-          backgroundRepeat: "no-repeat",
+          background:
+            mapData.mapName === "Hunter x Hunter"
+              ? "url('/Map/JS-HunterXHunter.png') no-repeat 0 0"
+              : `url(${mapData.mapImage})`,
+          width: mapData.mapName === "Hunter x Hunter" ? "516px" : "1000px",
+          height: mapData.mapName === "Hunter x Hunter" ? "484px" : "550px",
+          backgroundSize:
+            mapData.mapName === "Hunter x Hunter" ? "auto" : "cover",
           position: "absolute",
           top: "50%",
           left: "50%",
@@ -567,7 +638,7 @@ const VersusMode = () => {
                 width: `${
                   player1UltimateCooldown <= 0
                     ? 100
-                    : 100 - player1UltimateCooldown / 80
+                    : 100 - (player1UltimateCooldown / 30000) * 100
                 }%`,
                 backgroundColor:
                   player1UltimateCooldown <= 0 ? "#f7d51d" : "#555",
@@ -592,7 +663,7 @@ const VersusMode = () => {
                 width: `${
                   player2UltimateCooldown <= 0
                     ? 100
-                    : 100 - player2UltimateCooldown / 80
+                    : 100 - (player2UltimateCooldown / 30000) * 100
                 }%`,
                 backgroundColor:
                   player2UltimateCooldown <= 0 ? "#f7d51d" : "#555",
@@ -641,6 +712,15 @@ const VersusMode = () => {
         <div className="pause-menu">
           <h2>Pause</h2>
           <p>Appuyez sur Échap pour reprendre</p>
+        </div>
+      )}
+
+      {gameOver && (
+        <div className="winner-announcement">
+          <h1 className="winner-text">
+            {winner === player1Character ? player1Character : player2Character}{" "}
+            GAGNE !
+          </h1>
         </div>
       )}
     </div>

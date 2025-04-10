@@ -614,7 +614,10 @@ const Naruto = forwardRef(
             ultimateCooldown <= 0 &&
             !isAttacking
           ) {
-            console.log("Démarrage de l'ultime");
+            console.log("Démarrage de l'ultime de Naruto");
+            setAttackType("ultimate");
+            setIsAttacking(true);
+            setUltimateCooldown(30000);
 
             // Bloquer les touches
             setIsExecutingUltimate(true);
@@ -641,7 +644,7 @@ const Naruto = forwardRef(
                 setIsAttacking(true);
                 setAttackType("ultimateCharge");
                 setCurrentFrame(0);
-                setUltimateCooldown(8000);
+                setUltimateCooldown(30000);
 
                 // Phase 1: Charge pendant 600ms
                 setTimeout(() => {
@@ -725,7 +728,7 @@ const Naruto = forwardRef(
                 setIsAttacking(true);
                 setAttackType("ultimate");
                 setCurrentFrame(0);
-                setUltimateCooldown(8000);
+                setUltimateCooldown(30000);
 
                 setTimeout(() => {
                   setIsAttacking(false);
@@ -777,14 +780,23 @@ const Naruto = forwardRef(
 
     // Gestion du cooldown de l'ultime
     useEffect(() => {
-      if (ultimateCooldown > 0) {
-        const cooldownInterval = setInterval(() => {
-          setUltimateCooldown((prev) => prev - 100);
-        }, 100);
+      if (isPaused) return;
 
-        return () => clearInterval(cooldownInterval);
+      let interval;
+      if (ultimateCooldown > 0) {
+        interval = setInterval(() => {
+          setUltimateCooldown((prev) => {
+            const newValue = Math.max(0, prev - 100);
+            console.log("Naruto cooldown:", newValue);
+            return newValue;
+          });
+        }, 100);
       }
-    }, [ultimateCooldown]);
+
+      return () => {
+        if (interval) clearInterval(interval);
+      };
+    }, [ultimateCooldown, isPaused]);
 
     // Vérification spécifique quand on touche le sol
     useEffect(() => {

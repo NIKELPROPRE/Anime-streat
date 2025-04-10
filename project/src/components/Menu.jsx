@@ -10,8 +10,6 @@ const Menu = () => {
     { label: "Mode Histoire", disabled: true },
     { label: "Versus Bot", route: "/versus-bot" },
     { label: "Two Player", route: "/two-player" },
-    { label: "Test Naruto", route: "/test-naruto" }, // Remplacé "Settings" par "Test Naruto"
-    { label: "Test Luffy", route: "/test-luffy" },
     { label: "Options", disabled: true },
     { label: "Crédits", disabled: true },
   ];

@@ -16,11 +16,9 @@ function App() {
         <Route path="/" element={<MainMenu />} />
         <Route path="/versus-bot" element={<VersusBot />} />
         <Route path="/two-player" element={<CharacterSelection />} />
-        <Route path="/test-luffy" element={<TestLuffy />} />
-        <Route path="/test-naruto" element={<TestNaruto />} />
-        <Route path="/versus" element={<VersusMode />} />
         <Route path="/character-selection" element={<CharacterSelection />} />
         <Route path="/map-selection" element={<MapSelection />} />
+        <Route path="/versus" element={<VersusMode />} />
       </Routes>
     </Router>
   );

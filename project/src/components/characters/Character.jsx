@@ -22,7 +22,12 @@ const Character = forwardRef(
       isEnergyBallActive: () => characterRef.current?.isEnergyBallActive(),
       getEnergyBallPosition: () =>
         characterRef.current?.getEnergyBallPosition(),
-      getUltimateCooldown: () => characterRef.current?.getUltimateCooldown(),
+      getUltimateCooldown: () => {
+        if (typeof characterRef.current?.getUltimateCooldown === "function") {
+          return characterRef.current.getUltimateCooldown();
+        }
+        return 0;
+      },
     }));
 
     // Générer un identifiant unique pour chaque instance de personnage

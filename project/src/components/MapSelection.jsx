@@ -9,41 +9,21 @@ const MapSelection = () => {
     {
       id: 1,
       name: "One Piece",
-      mapImage: "/Map/Onepiece.png",
-      previewImage: "/Map/Onepiece.png",
-      frameCoordinates: { x: 0, y: 0, width: 0, height: 0 },
-      boundaries: {
-        left: 100,
-        right: 100,
-        top: 50,
-        bottom: 50,
-      },
+      image: "/Map/Onepiece.png",
+      boundaries: { left: 0, right: 1200, top: 0, bottom: 600 },
     },
     {
       id: 2,
       name: "Naruto",
-      mapImage: "/Map/konoha.jpg",
-      previewImage: "/Map/konoha.jpg",
-      frameCoordinates: { x: 0, y: 0, width: 0, height: 0 },
-      boundaries: {
-        left: 100,
-        right: 100,
-        top: 50,
-        bottom: 50,
-      },
+      image: "/Map/konoha.jpg",
+      boundaries: { left: 0, right: 1200, top: 0, bottom: 600 },
     },
     {
       id: 3,
       name: "Hunter x Hunter",
-      mapImage: "/Map/JS-HunterXHunter.png",
-      previewImage: "/Map/JS-HunterXHunter.png",
-      frameCoordinates: { x: 0, y: 0, width: 0, height: 0 },
-      boundaries: {
-        left: 100,
-        right: 100,
-        top: 50,
-        bottom: 50,
-      },
+      image: "/Map/JS-HunterXHunter.png",
+      boundaries: { left: 0, right: 516, top: 0, bottom: 484 },
+      frameCoordinates: { x: 0, y: 0, width: 516, height: 484 },
     },
   ]);
 
@@ -122,7 +102,7 @@ const MapSelection = () => {
           state: {
             mapId: selectedMap.id,
             mapName: selectedMap.name,
-            mapImage: selectedMap.mapImage,
+            mapImage: selectedMap.image,
             frameCoordinates: selectedMap.frameCoordinates,
             boundaries: selectedMap.boundaries,
             player1Character: player1Character,
@@ -155,7 +135,7 @@ const MapSelection = () => {
                 : player2Confirmed
                 ? player2Selection
                 : player1Selection
-            ].previewImage
+            ].image
           }
           alt="Aperçu de la map"
         />
@@ -215,7 +195,7 @@ const MapSelection = () => {
               else if (!player2Confirmed) setPlayer2Selection(index);
             }}
           >
-            <img src={map.previewImage} alt={map.name} />
+            <img src={map.image} alt={map.name} />
             <p>{map.name}</p>
 
             {/* Indicateurs de sélection */}
