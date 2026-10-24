@@ -1,0 +1,1 @@
+Mets ici ally.png, enemy.png, keeper.png (tes propres sprites, ~24 px de haut, regard vers la droite).

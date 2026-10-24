@@ -5,6 +5,8 @@ Projet séparé du reste du dépôt. Jeu jouable dans le navigateur, format doub
 
 Ouvrir `index.html` dans un navigateur.
 
+Sprites perso : voir `sprites/LISEZMOI.txt`.
+
 ## Contrôles
 | Action | Clavier | Tactile (écran du bas) |
 |---|---|---|

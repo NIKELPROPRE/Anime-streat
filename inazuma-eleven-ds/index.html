@@ -212,8 +212,14 @@ function shoot(p,lvl,ai){
 }
 
 // ---------- Dessin ----------
+// Sprites optionnels : dépose ally.png / enemy.png / keeper.png dans sprites/ (sinon dessin par défaut)
+const IMGS={};
+for(const n of ["ally","enemy","keeper"]){const im=new Image();im.onload=()=>IMGS[n]=im;im.src=`sprites/${n}.png`;}
 function player(g,p,x,y){
   g.fillStyle="rgba(0,0,0,.3)";g.beginPath();g.ellipse(x,y+9,6,2.5,0,0,7);g.fill();
+  const im=IMGS[p.gk?"keeper":p.side?"enemy":"ally"];
+  if(im){const h=24,w=im.width/im.height*h;g.save();g.translate(x,y+9);g.scale(p.face<0?-1:1,1);g.drawImage(im,-w/2,-h,w,h);g.restore();
+    if(p===ctrl){g.fillStyle="#ff0";g.beginPath();g.moveTo(x,y-18);g.lineTo(x-3,y-23);g.lineTo(x+3,y-23);g.fill();}return;}
   g.fillStyle="#f2c9a0";g.fillRect(x-3,y-11,6,6);            // tête
   g.fillStyle=p.gk?"#2fd05a":p.col;g.fillRect(x-4,y-5,8,8);   // maillot
   g.fillStyle="#fff";g.fillRect(x-4,y+3,8,3);                 // short
