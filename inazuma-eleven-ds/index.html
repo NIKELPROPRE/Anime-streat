@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Inazuma Eleven DS</title>
+<style>
+  html,body{margin:0;height:100%;background:#111;color:#fff;font-family:system-ui,sans-serif;overflow:hidden;touch-action:none}
+  #wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+  canvas{background:#000;image-rendering:pixelated;max-height:46vh;max-width:96vw;aspect-ratio:256/192;border:3px solid #333;border-radius:6px}
+  #help{font-size:12px;opacity:.7;margin-top:6px;text-align:center;padding:0 8px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="top" width="256" height="192"></canvas>
+  <canvas id="bot" width="256" height="192"></canvas>
+  <div id="help">Stick : ZQSD / flèches · Dribble : Espace · Passe : K · Tir (maintenir = charger) : J · Entrée : valider</div>
+</div>
+<script>
+"use strict";
+// ---------- Données : histoire globale IE1 -> IE2 -> IE3 ----------
+const SHOTS = [
+  {name:"Tir",            color:"#fff",    power:1.0},
+  {name:"Tornade de feu", color:"#ff7a1a", power:1.8},
+  {name:"Tempête de feu", color:"#ff3b1a", power:2.6},
+  {name:"Tornade de feu DD", color:"#ff1a6a", power:3.6}
+];
+const CHAPTERS = [
+  {game:"Inazuma Eleven 1", opp:"Royal Academy",   col:"#8a2be2", level:1, diff:0.8},
+  {game:"Inazuma Eleven 1", opp:"Zeus",            col:"#e8c820", level:2, diff:1.0},
+  {game:"Inazuma Eleven 2", opp:"Occult (Kirkwood)",col:"#444",   level:2, diff:1.15},
+  {game:"Inazuma Eleven 2", opp:"Génésis",         col:"#2fb36b", level:3, diff:1.3},
+  {game:"Inazuma Eleven 3", opp:"Big Waves",       col:"#1e90ff", level:3, diff:1.45},
+  {game:"Inazuma Eleven 3", opp:"Orpheus",         col:"#e0e0ff", level:3, diff:1.7}
+];
+const CHARGE_TIME = [0, 0.5, 1.1, 1.8]; // secondes pour atteindre lvl 1,2,3 (lvl0 = tir simple)
+
+// ---------- Entrées ----------
+const keys = {}, pressed = {};
+addEventListener("keydown", e => { if(!keys[e.code]) pressed[e.code]=true; keys[e.code]=true; if(e.code.startsWith("Arrow")||e.code==="Space") e.preventDefault(); });
+addEventListener("keyup", e => { keys[e.code]=false; });
+const stick = {x:0,y:0};
+function readInput(){
+  let x=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.KeyQ||keys.ArrowLeft?1:0);
+  let y=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.KeyZ||keys.ArrowUp?1:0);
+  x+=stick.x; y+=stick.y;
+  const l=Math.hypot(x,y); if(l>1){x/=l;y/=l;}
+  return {x,y,dribble:!!keys.Space,pass:!!keys.KeyK,shoot:!!keys.KeyJ};
+}
+// Joystick tactile (écran du bas)
+const bot = document.getElementById("bot"), top_ = document.getElementById("top");
+function touch(e){
+  e.preventDefault();
+  stick.x=stick.y=0; touchBtn.dribble=touchBtn.pass=touchBtn.shoot=false;
+  for(const t of e.touches){
+    const r=bot.getBoundingClientRect(), px=(t.clientX-r.left)/r.width*256, py=(t.clientY-r.top)/r.height*192;
+    if(px<110){ stick.x=Math.max(-1,Math.min(1,(px-55)/40)); stick.y=Math.max(-1,Math.min(1,(py-130)/40)); }
+    else if(Math.hypot(px-150,py-150)<22) touchBtn.dribble=true;
+    else if(Math.hypot(px-185,py-125)<22) touchBtn.pass=true;
+    else if(Math.hypot(px-220,py-150)<26) touchBtn.shoot=true;
+    else pressed.Enter=true;
+  }
+}
+const touchBtn={dribble:false,pass:false,shoot:false};
+["touchstart","touchmove","touchend","touchcancel"].forEach(n=>bot.addEventListener(n,touch,{passive:false}));
+const _read=readInput;
+readInput=function(){const i=_read(); i.dribble=i.dribble||touchBtn.dribble; i.pass=i.pass||touchBtn.pass; i.shoot=i.shoot||touchBtn.shoot; return i;};
+
+// ---------- Rendu ----------
+const T=top_.getContext("2d"), B=bot.getContext("2d");
+const FW=640, FH=360;                   // terrain (monde)
+const GOAL_H=90;
+let state="menu", chap=0, menuIdx=0, msg="", msgT=0;
+let ball, players, score, timeLeft, charge, chargeLvl, holdShoot, cam, flash, shake, particles;
+
+function mkTeam(side,col){
+  const base = side===0
+   ? [[60,FH/2],[200,90],[200,FH-90],[320,FH/2]]
+   : [[FW-60,FH/2],[FW-200,90],[FW-200,FH-90],[FW-320,FH/2]];
+  return base.map((p,i)=>({x:p[0],y:p[1],hx:p[0],hy:p[1],vx:0,vy:0,side,col,gk:i===0,face:side?-1:1,cd:0}));
+}
+function startMatch(){
+  const c=CHAPTERS[chap];
+  players=[...mkTeam(0,"#f08a1a"),...mkTeam(1,c.col)];
+  ball={x:FW/2,y:FH/2,vx:0,vy:0,owner:null,pw:1,lvl:0};
+  score=[0,0]; timeLeft=90; charge=0; chargeLvl=0; holdShoot=false; cam=0; flash=0; shake=0; particles=[];
+  players[3].x=FW/2-14; players[3].y=FH/2; ball.owner=players[3]; ctrl=players[3];
+  state="play"; say(`${c.game} – vs ${c.opp}`);
+}
+let ctrl;
+function say(t){msg=t;msgT=2.5;}
+function kickoff(side){
+  players.forEach(p=>{p.x=p.hx;p.y=p.hy;p.vx=p.vy=0;});
+  const k=players[side===0?3:7]; k.x=FW/2+(side?14:-14); k.y=FH/2;
+  ball.x=FW/2;ball.y=FH/2;ball.vx=ball.vy=0;ball.owner=k;ball.lvl=0;
+  if(side===0)ctrl=k;
+}
+function burst(x,y,col,n){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=40+Math.random()*120;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:.6,col});}}
+
+// ---------- Logique ----------
+function nearest(list,x,y,ex){let b=null,d=1e9;for(const p of list){if(p===ex)continue;const dd=Math.hypot(p.x-x,p.y-y);if(dd<d){d=dd;b=p;}}return b;}
+function update(dt){
+  const c=CHAPTERS[chap], inp=readInput();
+  if(msgT>0)msgT-=dt; flash=Math.max(0,flash-dt*2); shake=Math.max(0,shake-dt*20);
+  timeLeft-=dt;
+  if(timeLeft<=0){state="end";return;}
+  const mine=players.filter(p=>p.side===0), foes=players.filter(p=>p.side===1);
+
+  // changer de joueur contrôlé quand on n'a pas la balle
+  if(ball.owner===null || ball.owner.side===1){
+    const n=nearest(mine.filter(p=>!p.gk),ball.x,ball.y); if(n)ctrl=n;
+  } else if(ball.owner.side===0) ctrl=ball.owner;
+
+  // --- joueur ---
+  const hasBall=ball.owner===ctrl;
+  const sp=(hasBall&&inp.dribble)?95:70;
+  ctrl.vx=inp.x*sp; ctrl.vy=inp.y*sp;
+  if(inp.x)ctrl.face=Math.sign(inp.x);
+
+  // tir : maintenir = charger, relâcher = tirer
+  if(hasBall && inp.shoot){
+    holdShoot=true; charge+=dt;
+    chargeLvl=charge>=CHARGE_TIME[3]?3:charge>=CHARGE_TIME[2]?2:charge>=CHARGE_TIME[1]?1:0;
+    ctrl.vx*=.3; ctrl.vy*=.3;
+  } else if(holdShoot){
+    holdShoot=false; shoot(ctrl,chargeLvl); charge=0; chargeLvl=0;
+  } else { charge=0; chargeLvl=0; }
+
+  if(hasBall && inp.pass && !holdShoot && ctrl.cd<=0){
+    const t=nearest(mine.filter(p=>!p.gk),ctrl.x,ctrl.y,ctrl);
+    // privilégie le coéquipier le plus avancé dans la direction du stick
+    let best=t,bs=-1e9;
+    for(const m of mine){ if(m===ctrl||m.gk)continue;
+      const dx=m.x-ctrl.x,dy=m.y-ctrl.y,d=Math.hypot(dx,dy)||1;
+      const s=(inp.x*dx+inp.y*dy)/d*60-d*.15+ (m.x-ctrl.x)*.05;
+      if(s>bs){bs=s;best=m;} }
+    if(best){ const dx=best.x-ctrl.x,dy=best.y-ctrl.y,d=Math.hypot(dx,dy)||1;
+      ball.owner=null;ball.vx=dx/d*260;ball.vy=dy/d*260;ball.lvl=0;ball.pw=1;ball.target=best;ctrl.cd=.3;}
+  }
+  ctrl.cd-=dt;
+
+  // --- IA ---
+  for(const p of players){
+    if(p===ctrl)continue;
+    p.cd-=dt;
+    let tx=p.hx,ty=p.hy,spd=55*(p.side?c.diff:1);
+    if(p.gk){ ty=Math.max(FH/2-GOAL_H/2,Math.min(FH/2+GOAL_H/2,ball.y)); spd=75*(p.side?c.diff:1); }
+    else if(ball.owner===p){
+      // porteur IA : avance vers le but adverse, tire/passe
+      const gx=p.side?0:FW; tx=gx; ty=FH/2+(p.hy-FH/2)*.4; spd=60*(p.side?c.diff:1);
+      if(Math.abs(p.x-gx)<170 && p.cd<=0){ shoot(p,p.side?Math.min(3,c.level):0,true); p.cd=1.2; }
+    } else if(ball.owner===null){
+      const near=nearest(players.filter(q=>q.side===p.side&&!q.gk),ball.x,ball.y);
+      if(near===p||(ball.target===p)){tx=ball.x;ty=ball.y;}
+      else {tx=(p.hx+ball.x)/2;ty=(p.hy+ball.y)/2;}
+    } else if(ball.owner.side!==p.side){
+      const near=nearest(players.filter(q=>q.side===p.side&&!q.gk),ball.owner.x,ball.owner.y);
+      if(near===p){tx=ball.owner.x;ty=ball.owner.y;} else {tx=(p.hx+ball.owner.x)/2;ty=p.hy;}
+    } else { tx=p.hx+(p.side?-80:80); ty=p.hy; }
+    const dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy);
+    if(d>3){p.vx=dx/d*spd;p.vy=dy/d*spd;}else{p.vx=p.vy=0;}
+  }
+  for(const p of players){p.x=Math.max(8,Math.min(FW-8,p.x+p.vx*dt));p.y=Math.max(8,Math.min(FH-8,p.y+p.vy*dt));}
+
+  // --- balle ---
+  if(ball.owner){
+    const o=ball.owner; ball.x=o.x+o.face*11; ball.y=o.y+4; ball.vx=ball.vy=0;
+    // tacle
+    for(const q of players){ if(q.side!==o.side && !q.gk && Math.hypot(q.x-o.x,q.y-o.y)<11 && q.cd<=0){
+      if(Math.random()<(q.side?.35*c.diff:.5)*dt*6){ ball.owner=null; ball.vx=(Math.random()-.5)*120; ball.vy=(Math.random()-.5)*120; q.cd=.6; } } }
+  } else {
+    ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
+    const f=ball.lvl>0?.4:1.4; ball.vx*=1-f*dt; ball.vy*=1-f*dt;
+    if(ball.y<4||ball.y>FH-4){ball.vy*=-1;ball.y=Math.max(4,Math.min(FH-4,ball.y));}
+    // ramassage
+    for(const p of players){
+      if(Math.hypot(p.x-ball.x,p.y-ball.y)<(p.gk?14:9)){
+        if(ball.lvl>0 && p.side===(ball.shooter||0)) continue;
+        if(ball.lvl>0){
+          if(p.gk){ // arrêt du gardien : face à la puissance
+            const stop = Math.random() < Math.max(.12,.75 - (ball.pw-1)*.22) * (p.side?1/c.diff:1)+0.0;
+            if(stop){ ball.owner=p; ball.lvl=0; burst(p.x,p.y,"#8cf",14); say("Arrêt !"); }
+            else continue;
+          } else if(Math.random()<.25 && ball.pw<2){ ball.owner=p; ball.lvl=0; }
+          else continue;
+        } else { ball.owner=p; ball.target=null; }
+        break;
+      }
+    }
+    // buts
+    if(ball.x<0||ball.x>FW){
+      if(Math.abs(ball.y-FH/2)<GOAL_H/2){
+        const s=ball.x>FW?0:1; score[s]++; flash=1; shake=8; burst(ball.x,ball.y,"#ff0",40);
+        say(s===0?"BUUUT !":"But encaissé..."); kickoff(1-s);
+      } else {
+        ball.owner=nearest(players.filter(p=>p.side===(ball.x<0?0:1)&&p.gk),ball.x,ball.y)||players[0]; ball.lvl=0;
+      }
+    }
+  }
+  if(ball.lvl>0 && Math.hypot(ball.vx,ball.vy)<80) ball.lvl=0;
+  if(ball.lvl>0 && Math.random()<.6) particles.push({x:ball.x,y:ball.y,vx:0,vy:0,t:.35,col:SHOTS[ball.lvl].color});
+  for(const q of particles){q.x+=q.vx*dt;q.y+=q.vy*dt;q.t-=dt;} particles=particles.filter(q=>q.t>0);
+  cam+= ((ball.x-128)-cam)*Math.min(1,dt*5); cam=Math.max(0,Math.min(FW-256,cam));
+}
+function shoot(p,lvl,ai){
+  const gx=p.side?0:FW, gy=FH/2+(Math.random()-.5)*GOAL_H*.7;
+  const dx=gx-p.x,dy=gy-p.y,d=Math.hypot(dx,dy)||1, s=SHOTS[lvl];
+  ball.owner=null; ball.shooter=p.side; ball.lvl=lvl; ball.pw=s.power;
+  const v=300+lvl*90; ball.vx=dx/d*v; ball.vy=dy/d*v;
+  if(lvl>0){ say(s.name+" !"); shake=5; burst(p.x,p.y,s.color,16+lvl*8); }
+}
+
+// ---------- Dessin ----------
+function player(g,p,x,y){
+  g.fillStyle="rgba(0,0,0,.3)";g.beginPath();g.ellipse(x,y+9,6,2.5,0,0,7);g.fill();
+  g.fillStyle="#f2c9a0";g.fillRect(x-3,y-11,6,6);            // tête
+  g.fillStyle=p.gk?"#2fd05a":p.col;g.fillRect(x-4,y-5,8,8);   // maillot
+  g.fillStyle="#fff";g.fillRect(x-4,y+3,8,3);                 // short
+  g.fillStyle=p===ctrl?"#ff0":"#222";g.fillRect(x-4,y+6,3,3);g.fillRect(x+1,y+6,3,3);
+  if(p===ctrl){g.fillStyle="#ff0";g.beginPath();g.moveTo(x,y-16);g.lineTo(x-3,y-21);g.lineTo(x+3,y-21);g.fill();}
+}
+function drawTop(){
+  const g=T; g.save();
+  const sx=shake?(Math.random()-.5)*shake:0; g.translate(-cam+sx,0);
+  g.scale(1,192/FH);
+  // pelouse
+  for(let i=0;i<10;i++){g.fillStyle=i%2?"#2f9c3a":"#35a842";g.fillRect(i*FW/10,0,FW/10,FH);}
+  g.strokeStyle="#fff";g.lineWidth=2;g.strokeRect(2,2,FW-4,FH-4);
+  g.beginPath();g.moveTo(FW/2,0);g.lineTo(FW/2,FH);g.stroke();
+  g.beginPath();g.arc(FW/2,FH/2,40,0,7);g.stroke();
+  g.strokeRect(0,FH/2-60,50,120);g.strokeRect(FW-50,FH/2-60,50,120);
+  g.fillStyle="#ddd";g.fillRect(-6,FH/2-GOAL_H/2,6,GOAL_H);g.fillRect(FW,FH/2-GOAL_H/2,6,GOAL_H);
+  // particules + entités
+  for(const q of particles){g.globalAlpha=Math.max(0,q.t*1.5);g.fillStyle=q.col;g.fillRect(q.x-2,q.y-2,4,4);}
+  g.globalAlpha=1;
+  [...players].sort((a,b)=>a.y-b.y).forEach(p=>player(g,p,p.x,p.y));
+  // balle
+  if(ball.lvl>0){g.fillStyle=SHOTS[ball.lvl].color;g.beginPath();g.arc(ball.x,ball.y,9,0,7);g.fill();}
+  g.fillStyle="#fff";g.beginPath();g.arc(ball.x,ball.y,4,0,7);g.fill();g.strokeStyle="#000";g.lineWidth=1;g.stroke();
+  g.restore();
+  // charge autour du joueur
+  if(holdShoot){
+    const px=ctrl.x-cam, py=ctrl.y*192/FH-24;
+    g.fillStyle="#000a";g.fillRect(px-16,py,32,5);
+    g.fillStyle=chargeLvl?SHOTS[chargeLvl].color:"#aaa";
+    g.fillRect(px-15,py+1,Math.min(30,charge/CHARGE_TIME[3]*30),3);
+  }
+  if(flash>0){g.fillStyle=`rgba(255,255,255,${flash*.6})`;g.fillRect(0,0,256,192);}
+  // score
+  g.fillStyle="#000b";g.fillRect(78,0,100,16);g.fillStyle="#fff";g.font="bold 11px monospace";g.textAlign="center";
+  g.fillText(`${score[0]} - ${score[1]}   ${Math.max(0,Math.ceil(timeLeft))}s`,128,12);
+  if(msgT>0){g.font="bold 16px monospace";g.fillStyle="#000";g.fillText(msg,129,101);g.fillStyle="#ffd400";g.fillText(msg,128,100);}
+}
+function btn(g,x,y,r,label,on,col){
+  g.fillStyle=on?col:"#333";g.beginPath();g.arc(x,y,r,0,7);g.fill();
+  g.strokeStyle="#888";g.lineWidth=2;g.stroke();
+  g.fillStyle="#fff";g.font="bold 8px monospace";g.textAlign="center";g.fillText(label,x,y+3);
+}
+function drawBot(){
+  const g=B; g.fillStyle="#1a1a2e";g.fillRect(0,0,256,192);
+  const c=CHAPTERS[chap], inp=readInput();
+  g.fillStyle="#fff";g.font="bold 10px monospace";g.textAlign="left";
+  g.fillText(`${c.game}`,8,14);g.fillStyle="#9cf";g.fillText(`Match ${chap+1}/${CHAPTERS.length} : vs ${c.opp}`,8,27);
+  // mini-carte
+  g.fillStyle="#2a7a34";g.fillRect(8,36,240,50);g.strokeStyle="#fff";g.strokeRect(8,36,240,50);
+  if(players){
+    for(const p of players){g.fillStyle=p.side?c.col:"#f08a1a";g.fillRect(8+p.x/FW*240-1,36+p.y/FH*50-1,3,3);}
+    g.fillStyle="#fff";g.fillRect(8+ball.x/FW*240-1,36+ball.y/FH*50-1,3,3);
+  }
+  // jauge de charge
+  g.fillStyle="#fff";g.fillText("Charge du tir",8,100);
+  for(let i=0;i<3;i++){
+    g.fillStyle="#333";g.fillRect(8+i*78,106,74,10);
+    const full=chargeLvl>i, part=chargeLvl===i&&holdShoot;
+    const w=full?74:part?74*Math.min(1,(charge-CHARGE_TIME[i])/(CHARGE_TIME[i+1]-CHARGE_TIME[i])):0;
+    g.fillStyle=SHOTS[i+1].color;g.fillRect(8+i*78,106,Math.max(0,w),10);
+    g.fillStyle="#fff";g.font="8px monospace";g.fillText("LVL "+(i+1),10+i*78,125);
+  }
+  g.font="bold 10px monospace";g.fillStyle=SHOTS[chargeLvl].color;
+  g.fillText(holdShoot?SHOTS[chargeLvl].name:"Maintiens TIR pour charger",8,138);
+  // stick + boutons
+  g.fillStyle="#222";g.beginPath();g.arc(55,150,32,0,7);g.fill();g.strokeStyle="#666";g.stroke();
+  g.fillStyle="#999";g.beginPath();g.arc(55+inp.x*20,150+inp.y*20,13,0,7);g.fill();
+  btn(g,150,155,18,"DRIBBLE",inp.dribble,"#2a8");btn(g,185,130,18,"PASSE",inp.pass,"#28a");btn(g,220,155,22,"TIR",inp.shoot,"#d33");
+}
+function drawMenu(){
+  T.fillStyle="#0a1a4a";T.fillRect(0,0,256,192);
+  T.fillStyle="#ffd400";T.font="bold 22px monospace";T.textAlign="center";T.fillText("INAZUMA ELEVEN",128,70);
+  T.fillStyle="#fff";T.font="bold 14px monospace";T.fillText("DS — Le Football des Géants",128,92);
+  T.font="10px monospace";T.fillText("Entrée / toucher l'écran du bas pour jouer",128,150);
+  B.fillStyle="#1a1a2e";B.fillRect(0,0,256,192);B.textAlign="left";B.font="bold 10px monospace";
+  CHAPTERS.forEach((c,i)=>{B.fillStyle=i===menuIdx?"#ffd400":"#aaa";B.fillText(`${i===menuIdx?"▶":" "} ${c.game.replace("Inazuma Eleven","IE")} · ${c.opp}`,10,24+i*22);});
+  B.fillStyle="#888";B.fillText("↑/↓ choisir · Entrée jouer",10,176);
+}
+function drawEnd(){
+  drawTop();
+  T.fillStyle="#000c";T.fillRect(0,60,256,72);T.fillStyle="#ffd400";T.font="bold 18px monospace";T.textAlign="center";
+  const w=score[0]>score[1];T.fillText(w?"VICTOIRE !":score[0]===score[1]?"MATCH NUL":"DÉFAITE",128,92);
+  T.fillStyle="#fff";T.font="10px monospace";T.fillText(`${score[0]} - ${score[1]}  ·  Entrée : ${w&&chap<CHAPTERS.length-1?"match suivant":"rejouer"}`,128,114);
+  drawBot();
+}
+
+// ---------- Boucle ----------
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(.05,(t-last)/1000);last=t;
+  if(state==="menu"){
+    if(pressed.ArrowDown||pressed.KeyS)menuIdx=(menuIdx+1)%CHAPTERS.length;
+    if(pressed.ArrowUp||pressed.KeyW||pressed.KeyZ)menuIdx=(menuIdx+CHAPTERS.length-1)%CHAPTERS.length;
+    if(pressed.Enter){chap=menuIdx;startMatch();}
+    drawMenu();
+  } else if(state==="play"){ update(dt); drawTop(); drawBot(); }
+  else { if(pressed.Enter){ if(score[0]>score[1]&&chap<CHAPTERS.length-1)chap++; startMatch(); } drawEnd(); }
+  for(const k in pressed)delete pressed[k];
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
